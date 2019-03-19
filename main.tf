@@ -1,19 +1,13 @@
 provider "aws" {
-  region        = "us-east-2"
-  }
-
-module "networking" {
-  source        = "./networking"
+  region = "us-east-2"
 }
 
-resource "aws_instance" "webserver1"{
-  ami           = "ami-0de7daa7385332688"
-  instance_type = "t2.nano"
-  subnet_id     = "${module.networking.subnet1_id}"
+module "networking" {
+  source = "./networking"
+}
 
-  tags = {
-    Name        = "webserver1"
-    Owner       = "Alipui"
-    Project     = "WordpressSite"
-  }
-  }
+module "compute" {
+  source = "./compute"
+  subnet1_id = "${module.networking.subnet1_id}"
+  security_group_id = "${module.networking.webserverSG_id}"
+}
