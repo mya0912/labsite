@@ -4,7 +4,7 @@ resource "aws_instance" "webserver1" {
   subnet_id                   = "${var.subnet1_id}"
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
-  user_data                   = "#!/bin/bash sudo yum update; sudo yum install -y httpd; systemctl start httpd"
+  user_data                   = "${data.template_file.user_data_shell.rendered}"
   vpc_security_group_ids      = ["${var.security_group_id}"]
 
   tags = {
@@ -13,6 +13,20 @@ resource "aws_instance" "webserver1" {
     Project = "WordpressSite"
   }
 }
+
+#specify data object to load user data inline
+data "template_file" "user_data_shell"{
+  template = <<-EOF
+              #!/bin/bash
+              sudo yum update
+              sudo yum install -y httpd
+              wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
+              sudo rpm -U ./amazon-cloudwatch-agent.rpm
+              sudo aws configure --profile labsite
+              sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -s
+              systemctl start httpd
+              EOF
+            }
 
 resource "aws_key_pair" "MAkey" {
   key_name   = "Alipui_key"
