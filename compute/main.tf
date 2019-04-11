@@ -1,11 +1,27 @@
-resource "aws_instance" "webserver1" {
+resource "aws_instance" "bastion" {
   ami                         = "ami-0de7daa7385332688"
   instance_type               = "t2.nano"
   subnet_id                   = "${var.subnet1_id}"
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
+  vpc_security_group_ids      = ["${var.bastionSG_id}"]
+
+  tags = {
+    Name    = "bastion host"
+    Owner   = "Alipui"
+    Project = "WordpressSite"
+  }
+}
+
+resource "aws_instance" "webserver1" {
+  ami                         = "ami-0de7daa7385332688"
+  instance_type               = "t2.nano"
+  subnet_id                   = "${var.subnet1_id}"
+#delete following ilne once load ballancer built
+  associate_public_ip_address = "true"
+  key_name                    = "Alipui_key"
   user_data                   = "${data.template_file.user_data_shell.rendered}"
-  vpc_security_group_ids      = ["${var.security_group_id}"]
+  vpc_security_group_ids      = ["${var.webserverSG_id}"]
 
   tags = {
     Name    = "webserver1"
@@ -13,7 +29,22 @@ resource "aws_instance" "webserver1" {
     Project = "WordpressSite"
   }
 }
+resource "aws_instance" "webserver2" {
+  ami                         = "ami-0de7daa7385332688"
+  instance_type               = "t2.nano"
+  subnet_id                   = "${var.subnet2_id}"
+#delete following line once load balancer built
+  associate_public_ip_address = "true"
+  key_name                    = "Alipui_key"
+  user_data                   = "${data.template_file.user_data_shell.rendered}"
+  vpc_security_group_ids      = ["${var.webserverSG_id}"]
 
+  tags = {
+    Name    = "webserver2"
+    Owner   = "Alipui"
+    Project = "WordpressSite"
+  }
+}
 #specify data object to load user data inline
 data "template_file" "user_data_shell"{
   template = <<-EOF

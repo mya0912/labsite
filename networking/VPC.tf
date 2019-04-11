@@ -25,10 +25,10 @@ resource "aws_internet_gateway" "labsiteIGW" {
   }
 }
 
-#create subnet within VPC - subnet1 is public
+#create subnet to house bastion bost - subnet1 is public
 resource "aws_subnet" "subnet1" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
-  cidr_block        = "20.0.10.0/24"
+  cidr_block        = "20.0.10.0/28"
   availability_zone = "us-east-2a"
 
   tags = {
@@ -61,8 +61,53 @@ resource "aws_route_table_association" "subnet1-a" {
 }
 
 #create private subnet to place webservers in
+resource "aws_subnet" "subnet2" {
+  vpc_id            = "${aws_vpc.labsiteVPC.id}"
+  cidr_block        = "20.0.20.0/28"
+  availability_zone = "us-east-2b"
+
+  tags = {
+    Name    = "labsiteVPC-subnet2"
+    Owner   = "Alipui"
+    Project = "WordpressSite"
+  }
+}
+
+#create second private subnet to place webservers in
+resource "aws_subnet" "subnet2" {
+  vpc_id            = "${aws_vpc.labsiteVPC.id}"
+  cidr_block        = "20.0.30.0/28"
+  availability_zone = "us-east-2c"
+
+  tags = {
+    Name    = "labsiteVPC-subnet3"
+    Owner   = "Alipui"
+    Project = "WordpressSite"
+  }
+}
 
 #create security group for bastion host
+resource "aws_security_group" "bastionSG" {
+  name        = "bastionSG"
+  description = "port 22 open IP restricted"
+  vpc_id      = "${aws_vpc.labsiteVPC.id}"
+
+  ingress {
+    # ssh port open, restricted to my ip
+    from_port = 22
+    to_port   = 22
+    protocol  = "tcp"
+
+    cidr_blocks = ["108.56.71.0/24", "67.154.234.0/24"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
 #create security group for webservers - modify once placed behind load balancer
 resource "aws_security_group" "webserverSG" {
@@ -76,7 +121,7 @@ resource "aws_security_group" "webserverSG" {
     to_port   = 22
     protocol  = "tcp"
 
-    cidr_blocks = ["108.56.71.0/24"]
+    cidr_blocks = ["20.0.10.0/28"]
   }
 
   ingress {
@@ -104,5 +149,3 @@ resource "aws_security_group" "webserverSG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
-
-#create internet gateway and configure so that webserver can communicate out

@@ -1,5 +1,11 @@
 variable subnet1_id {
 }
 
-variable security_group_id {
+variable bastionSG_id{
+}
+
+variable webserverSG_id {
+}
+
+variable subnet2_id {
 }
