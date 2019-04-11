@@ -5,6 +5,7 @@ resource "aws_instance" "bastion" {
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
   vpc_security_group_ids      = ["${var.bastionSG_id}"]
+  monitoring                  = "true"
 
   tags = {
     Name    = "bastion host"
@@ -23,6 +24,7 @@ resource "aws_instance" "webserver1" {
   key_name                    = "Alipui_key"
   user_data                   = "${data.template_file.user_data_webserver.rendered}"
   vpc_security_group_ids      = ["${var.webserverSG_id}"]
+  monitoring                  = "true"
 
   tags = {
     Name    = "webserver1"
@@ -41,7 +43,8 @@ resource "aws_instance" "webserver2" {
   key_name                    = "Alipui_key"
   user_data                   = "${data.template_file.user_data_webserver.rendered}"
   vpc_security_group_ids      = ["${var.webserverSG_id}"]
-
+  monitoring                  = "true"
+  
   tags = {
     Name    = "webserver2"
     Owner   = "Alipui"
