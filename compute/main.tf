@@ -21,7 +21,7 @@ resource "aws_instance" "webserver1" {
   #delete following ilne once load ballancer built
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
-  user_data                   = "${data.template_file.user_data_shell.rendered}"
+  user_data                   = "${data.template_file.user_data_webserver.rendered}"
   vpc_security_group_ids      = ["${var.webserverSG_id}"]
 
   tags = {
@@ -39,7 +39,7 @@ resource "aws_instance" "webserver2" {
   #delete following line once load balancer built
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
-  user_data                   = "${data.template_file.user_data_shell.rendered}"
+  user_data                   = "${data.template_file.user_data_webserver.rendered}"
   vpc_security_group_ids      = ["${var.webserverSG_id}"]
 
   tags = {
@@ -49,8 +49,20 @@ resource "aws_instance" "webserver2" {
   }
 }
 
-#specify data object to load user data inline
-data "template_file" "user_data_shell" {
+#user data for bastion host
+data "template_file" "user_data_bastion" {
+  template = <<-EOF
+  #!/bin/bash
+  sudo yum update
+  wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
+  sudo rpm -U ./amazon-cloudwatch-agent.rpm
+  sudo aws configure --profile labsite
+  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -s
+  EOF
+}
+
+#specify data object to load user data inline for webservers
+data "template_file" "user_data_webserver" {
   template = <<-EOF
               #!/bin/bash
               sudo yum update
