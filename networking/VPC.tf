@@ -74,7 +74,7 @@ resource "aws_subnet" "subnet2" {
 }
 
 #create second private subnet to place webservers in
-resource "aws_subnet" "subnet2" {
+resource "aws_subnet" "subnet3" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
   cidr_block        = "20.0.30.0/28"
   availability_zone = "us-east-2c"

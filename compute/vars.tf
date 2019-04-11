@@ -1,11 +1,9 @@
-variable subnet1_id {
-}
+variable bastion_subnet {}
 
-variable bastionSG_id{
-}
+variable bastionSG_id {}
 
-variable webserverSG_id {
-}
+variable webserverSG_id {}
 
-variable subnet2_id {
-}
+variable websubnet1_id {}
+
+variable websubnet2_id {}
