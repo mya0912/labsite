@@ -149,3 +149,92 @@ resource "aws_security_group" "webserverSG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+#create load balancer
+resource "aws_lb" "labsite_lb" {
+  name               = "labsitelb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = ["${aws_security_group.webserverSG.id}"]
+  subnets            = ["${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}"]
+
+  enable_deletion_protection = true
+
+  access_logs {
+    bucket  = "${aws_s3_bucket.logstash.bucket}"
+    prefix  = "alb"
+    enabled = true
+  }
+
+  tags = {
+    Project = "WordpressSite"
+    Owner   = "Alipui"
+  }
+}
+
+#create s3 bucket for load balancer logs`
+resource aws_s3_bucket "logstash" {
+  bucket = "alipui-labsite-logs"
+  acl    = "private"
+
+}
+
+#s3 bucket policy to allow load balancer puts
+resource "aws_s3_bucket_policy" "lbLogs" {
+  bucket = "${aws_s3_bucket.logstash.id}"
+
+  policy = <<POLICY
+  {
+  "Version": "2012-10-17",
+  "Id": "Policy1555009539519",
+  "Statement": [
+    {
+      "Sid": "Stmt1555009535017",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:s3:::alipui-labsite-logs/alb/AWSLogs/033677994240/*",
+      "Principal": {
+        "AWS": [
+          "033677994240"
+        ]
+      }
+    }
+  ]
+}
+POLICY
+}
+
+#create load balancer target group
+resource "aws_lb_target_group" "labsitelb_tg" {
+  name     = "labsite-lb-targets"
+  port     = 443
+  protocol = "HTTPS"
+  vpc_id   = "${aws_vpc.labsiteVPC.id}"
+
+  health_check {
+    path                = "/healthcheck"
+    port                = "443"
+    protocol            = "HTTPS"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    interval            = 5
+    timeout             = 4
+    matcher             = "200-308"
+  }
+}
+
+/*attach target group to instances - future improvement make this attachment to
+an ASG as opposed to individual instances*/
+resource "aws_lb_target_group_attachment" "labsitelb_tg_attachement1" {
+  target_group_arn = "${aws_lb_target_group.labsitelb_tg.arn}"
+  target_id        = "${var.webserver1_id}"
+  port             = 443
+}
+
+resource "aws_lb_target_group_attachment" "labsitelb_tg_attachement2" {
+  target_group_arn = "${aws_lb_target_group.labsitelb_tg.arn}"
+  target_id        = "${var.webserver2_id}"
+  port             = 443
+}

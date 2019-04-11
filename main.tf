@@ -4,6 +4,8 @@ provider "aws" {
 
 module "networking" {
   source = "./networking"
+  webserver1_id = "${module.compute.webserver1_id}"
+  webserver2_id = "${module.compute.webserver2_id}"
 }
 
 module "compute" {
