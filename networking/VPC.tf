@@ -60,6 +60,11 @@ resource "aws_route_table_association" "subnet1-a" {
   route_table_id = "${aws_route_table.routetbl.id}"
 }
 
+resource "aws_route_table_association" "subnet4-a" {
+  subnet_id      = "${aws_subnet.subnet4.id}"
+  route_table_id = "${aws_route_table.routetbl.id}"
+}
+
 #create private subnet to place webservers in
 resource "aws_subnet" "subnet2" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
@@ -86,6 +91,18 @@ resource "aws_subnet" "subnet3" {
   }
 }
 
+#create additional public subnet for load balancer
+resource "aws_subnet" "subnet4" {
+  vpc_id            = "${aws_vpc.labsiteVPC.id}"
+  cidr_block        = "20.0.40.0/28"
+  availability_zone = "us-east-2b"
+
+  tags = {
+    Name    = "labsiteVPC-subnet4"
+    Owner   = "Alipui"
+    Project = "WordpressSite"
+  }
+}
 #create security group for bastion host
 resource "aws_security_group" "bastionSG" {
   name        = "bastionSG"
@@ -158,7 +175,7 @@ resource "aws_lb" "labsite_lb" {
   security_groups    = ["${aws_security_group.webserverSG.id}"]
   subnets            = ["${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}"]
 
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   access_logs {
     bucket  = "${aws_s3_bucket.logstash.bucket}"
@@ -175,36 +192,66 @@ resource "aws_lb" "labsite_lb" {
 #create s3 bucket for load balancer logs`
 resource aws_s3_bucket "logstash" {
   bucket = "alipui-labsite-logs"
-  acl    = "private"
-
-}
-
-#s3 bucket policy to allow load balancer puts
-resource "aws_s3_bucket_policy" "lbLogs" {
-  bucket = "${aws_s3_bucket.logstash.id}"
+  acl    = "log-delivery-write"
 
   policy = <<POLICY
   {
-  "Version": "2012-10-17",
-  "Id": "Policy1555009539519",
-  "Statement": [
-    {
-      "Sid": "Stmt1555009535017",
-      "Action": [
-        "s3:PutObject"
-      ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:s3:::alipui-labsite-logs/alb/AWSLogs/033677994240/*",
-      "Principal": {
-        "AWS": [
-          "033677994240"
+      "Id": "LoggingBucketPolicy",
+      "Version": "2012-10-17",
+      "Statement": [
+          {
+              "Sid": "GrantPutS3LoggingBucket",
+              "Action": "s3:PutObject",
+              "Effect": "Allow",
+              "Resource": "arn:aws:s3:::alipui-labsite-logs/alb/*",
+              "Principal": {"AWS": ["033677994240"]}
+          }
         ]
-      }
     }
-  ]
-}
 POLICY
 }
+
+#add listener
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = "${aws_lb.labsite_lb.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+#  certificate_arn   = "${aws_acm_certificate.LabsiteCert.arn}"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.labsitelb_tg.arn}"
+  }
+}
+
+/*resource "aws_lb_listener_rule" "redirect_http_to_https" {
+  listener_arn = "${aws_lb_listener.front_end.arn}"
+
+  action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener_certificate" "LabsiteCert" {
+  listener_arn    = "${aws_lb_listener.front_end.arn}"
+  certificate_arn = "${aws_acm_certificate.LabsiteCert.arn}"
+}
+
+resource "aws_acm_certificate" "cert" {
+  domain_name       = "example.com"
+  validation_method = "DNS"
+
+  tags = {
+    Environment = "test"
+  }
+
+  */
 
 #create load balancer target group
 resource "aws_lb_target_group" "labsitelb_tg" {
