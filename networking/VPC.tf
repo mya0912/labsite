@@ -25,6 +25,16 @@ resource "aws_internet_gateway" "labsiteIGW" {
   }
 }
 
+resource "aws_eip" "labsite-nat" {
+vpc      = true
+}
+
+resource "aws_nat_gateway" "gw" {
+  allocation_id = "${aws_eip.labsite-nat.id}"
+  subnet_id     = "${aws_subnet.subnet1.id}"
+  depends_on = ["aws_internet_gateway.labsiteIGW"]
+}
+
 #create subnet to house bastion bost - subnet1 is public
 resource "aws_subnet" "subnet1" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
@@ -256,20 +266,9 @@ resource "aws_acm_certificate" "cert" {
 #create load balancer target group
 resource "aws_lb_target_group" "labsitelb_tg" {
   name     = "labsite-lb-targets"
-  port     = 443
-  protocol = "HTTPS"
+  port     = 80
+  protocol = "HTTP"
   vpc_id   = "${aws_vpc.labsiteVPC.id}"
-
-  health_check {
-    path                = "/healthcheck"
-    port                = "443"
-    protocol            = "HTTPS"
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    interval            = 5
-    timeout             = 4
-    matcher             = "200-308"
-  }
 }
 
 /*attach target group to instances - future improvement make this attachment to
@@ -277,11 +276,11 @@ an ASG as opposed to individual instances*/
 resource "aws_lb_target_group_attachment" "labsitelb_tg_attachement1" {
   target_group_arn = "${aws_lb_target_group.labsitelb_tg.arn}"
   target_id        = "${var.webserver1_id}"
-  port             = 443
+  port             = 80
 }
 
 resource "aws_lb_target_group_attachment" "labsitelb_tg_attachement2" {
   target_group_arn = "${aws_lb_target_group.labsitelb_tg.arn}"
   target_id        = "${var.webserver2_id}"
-  port             = 443
+  port             = 80
 }
