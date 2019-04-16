@@ -44,7 +44,7 @@ resource "aws_instance" "webserver2" {
   user_data                   = "${data.template_file.user_data_webserver.rendered}"
   vpc_security_group_ids      = ["${var.webserverSG_id}"]
   monitoring                  = "true"
-  
+
   tags = {
     Name    = "webserver2"
     Owner   = "Alipui"
@@ -56,7 +56,7 @@ resource "aws_instance" "webserver2" {
 data "template_file" "user_data_bastion" {
   template = <<-EOF
   #!/bin/bash
-  sudo yum update
+  sudo yum update -y
   wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
   sudo rpm -U ./amazon-cloudwatch-agent.rpm
   sudo aws configure --profile labsite
@@ -68,7 +68,7 @@ data "template_file" "user_data_bastion" {
 data "template_file" "user_data_webserver" {
   template = <<-EOF
               #!/bin/bash
-              sudo yum update
+              sudo yum update -y
               sudo yum install -y httpd
               wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
               sudo rpm -U ./amazon-cloudwatch-agent.rpm

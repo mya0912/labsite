@@ -24,12 +24,12 @@ resource "aws_internet_gateway" "labsiteIGW" {
     Project = "WordpressSite"
   }
 }
-
+#create eip and nat gateway
 resource "aws_eip" "labsite-nat" {
 vpc      = true
 }
 
-resource "aws_nat_gateway" "gw" {
+resource "aws_nat_gateway" "NatGW" {
   allocation_id = "${aws_eip.labsite-nat.id}"
   subnet_id     = "${aws_subnet.subnet1.id}"
   depends_on = ["aws_internet_gateway.labsiteIGW"]
@@ -48,8 +48,8 @@ resource "aws_subnet" "subnet1" {
   }
 }
 
-#Route table for subnet1
-resource "aws_route_table" "routetbl" {
+#Route table for public subnets
+resource "aws_route_table" "public_routetbl" {
   vpc_id = "${aws_vpc.labsiteVPC.id}"
 
   route {
@@ -58,21 +58,50 @@ resource "aws_route_table" "routetbl" {
   }
 
   tags = {
-    Name    = "labsite Route Table"
+    Name    = "labsite Public Subnet Route Table"
     Owner   = "Alipui"
     Project = "WordpressSite"
   }
 }
 
-#association between routetable1 and subnet1
+#route table for private subnets
+resource "aws_route_table" "private_routetbl" {
+  vpc_id = "${aws_vpc.labsiteVPC.id}"
+
+  route{
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_nat_gateway.NatGW.id}"
+  }
+
+  tags = {
+    Name = "Labsite Private Subnet Route Table"
+    Owner = "Alipui"
+    Project = "WordPressSite"
+  }
+}
+
+
+#association between routetable1 and subnet1 and subnet4
 resource "aws_route_table_association" "subnet1-a" {
   subnet_id      = "${aws_subnet.subnet1.id}"
-  route_table_id = "${aws_route_table.routetbl.id}"
+  route_table_id = "${aws_route_table.public_routetbl.id}"
 }
 
 resource "aws_route_table_association" "subnet4-a" {
   subnet_id      = "${aws_subnet.subnet4.id}"
-  route_table_id = "${aws_route_table.routetbl.id}"
+  route_table_id = "${aws_route_table.public_routetbl.id}"
+}
+
+
+#associate private subnets to private route_table_id
+resource "aws_route_table_association" "subnet2-a" {
+  subnet_id = "${aws_subnet.subnet2.id}"
+  route_table_id = "${aws_route_table.private_routetbl.id}"
+}
+
+resource "aws_route_table_association" "subnet3-a" {
+  subnet_id = "${aws_subnet.subnet3.id}"
+  route_table_id = "${aws_route_table.private_routetbl.id}"
 }
 
 #create private subnet to place webservers in
@@ -101,7 +130,7 @@ resource "aws_subnet" "subnet3" {
   }
 }
 
-#create additional public subnet for load balancer
+#create additional public subnet for load balancer HA
 resource "aws_subnet" "subnet4" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
   cidr_block        = "20.0.40.0/28"
@@ -125,7 +154,7 @@ resource "aws_security_group" "bastionSG" {
     to_port   = 22
     protocol  = "tcp"
 
-    cidr_blocks = ["108.56.71.0/24", "67.154.234.0/24"]
+    cidr_blocks = ["108.56.71.0/24", "67.0.0.0/8"]
   }
 
   egress {
@@ -183,7 +212,7 @@ resource "aws_lb" "labsite_lb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.webserverSG.id}"]
-  subnets            = ["${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}"]
+  subnets            = ["${aws_subnet.subnet4.id}", "${aws_subnet.subnet3.id}"]
 
   enable_deletion_protection = false
 
