@@ -182,9 +182,9 @@ resource "aws_security_group" "webserverSG" {
 
   ingress {
     # http open
-    from_port = 80
-    to_port   = 80
-    protocol  = "tcp"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
     security_groups = ["${aws_security_group.lbSG.id}"]
   }
 
@@ -256,6 +256,29 @@ resource "aws_lb" "labsite_lb" {
   tags = {
     Project = "WordpressSite"
     Owner   = "Alipui"
+  }
+}
+
+#create security group for database
+resource "aws_security_group" "databaseSG" {
+  name        = "databaseSG"
+  description = "open port 3306 to webservers"
+  vpc_id      = "${aws_vpc.labsiteVPC.id}"
+
+  ingress {
+    # ssh port open, restricted to my ip
+    from_port = 3306
+    to_port   = 3306
+    protocol  = "tcp"
+
+    cidr_blocks = ["20.0.20.0/27", "20.0.30.0/27"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -341,8 +364,9 @@ resource "aws_lb_target_group" "labsitelb_tg" {
     unhealthy_threshold = 2
     timeout             = 2
     interval            = 5
+
     #path                = "/var/www/html/index.html"
-    port                = 80
+    port = 80
   }
 }
 
