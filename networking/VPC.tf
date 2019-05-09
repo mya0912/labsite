@@ -24,21 +24,22 @@ resource "aws_internet_gateway" "labsiteIGW" {
     Project = "WordpressSite"
   }
 }
+
 #create eip and nat gateway
 resource "aws_eip" "labsite-nat" {
-vpc      = true
+  vpc = true
 }
 
 resource "aws_nat_gateway" "NatGW" {
   allocation_id = "${aws_eip.labsite-nat.id}"
   subnet_id     = "${aws_subnet.subnet1.id}"
-  depends_on = ["aws_internet_gateway.labsiteIGW"]
+  depends_on    = ["aws_internet_gateway.labsiteIGW"]
 }
 
 #create subnet to house bastion bost - subnet1 is public
 resource "aws_subnet" "subnet1" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
-  cidr_block        = "20.0.10.0/28"
+  cidr_block        = "20.0.10.0/27"
   availability_zone = "us-east-2a"
 
   tags = {
@@ -68,20 +69,19 @@ resource "aws_route_table" "public_routetbl" {
 resource "aws_route_table" "private_routetbl" {
   vpc_id = "${aws_vpc.labsiteVPC.id}"
 
-  route{
+  route {
     cidr_block = "0.0.0.0/0"
     gateway_id = "${aws_nat_gateway.NatGW.id}"
   }
 
   tags = {
-    Name = "Labsite Private Subnet Route Table"
-    Owner = "Alipui"
+    Name    = "Labsite Private Subnet Route Table"
+    Owner   = "Alipui"
     Project = "WordPressSite"
   }
 }
 
-
-#association between routetable1 and subnet1 and subnet4
+#association between public route table and subnet1 and subnet4
 resource "aws_route_table_association" "subnet1-a" {
   subnet_id      = "${aws_subnet.subnet1.id}"
   route_table_id = "${aws_route_table.public_routetbl.id}"
@@ -92,22 +92,21 @@ resource "aws_route_table_association" "subnet4-a" {
   route_table_id = "${aws_route_table.public_routetbl.id}"
 }
 
-
 #associate private subnets to private route_table_id
 resource "aws_route_table_association" "subnet2-a" {
-  subnet_id = "${aws_subnet.subnet2.id}"
+  subnet_id      = "${aws_subnet.subnet2.id}"
   route_table_id = "${aws_route_table.private_routetbl.id}"
 }
 
 resource "aws_route_table_association" "subnet3-a" {
-  subnet_id = "${aws_subnet.subnet3.id}"
+  subnet_id      = "${aws_subnet.subnet3.id}"
   route_table_id = "${aws_route_table.private_routetbl.id}"
 }
 
 #create private subnet to place webservers in
 resource "aws_subnet" "subnet2" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
-  cidr_block        = "20.0.20.0/28"
+  cidr_block        = "20.0.20.0/27"
   availability_zone = "us-east-2b"
 
   tags = {
@@ -120,8 +119,8 @@ resource "aws_subnet" "subnet2" {
 #create second private subnet to place webservers in
 resource "aws_subnet" "subnet3" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
-  cidr_block        = "20.0.30.0/28"
-  availability_zone = "us-east-2c"
+  cidr_block        = "20.0.30.0/27"
+  availability_zone = "us-east-2a"
 
   tags = {
     Name    = "labsiteVPC-subnet3"
@@ -133,7 +132,7 @@ resource "aws_subnet" "subnet3" {
 #create additional public subnet for load balancer HA
 resource "aws_subnet" "subnet4" {
   vpc_id            = "${aws_vpc.labsiteVPC.id}"
-  cidr_block        = "20.0.40.0/28"
+  cidr_block        = "20.0.40.0/27"
   availability_zone = "us-east-2b"
 
   tags = {
@@ -142,6 +141,7 @@ resource "aws_subnet" "subnet4" {
     Project = "WordpressSite"
   }
 }
+
 #create security group for bastion host
 resource "aws_security_group" "bastionSG" {
   name        = "bastionSG"
@@ -154,7 +154,7 @@ resource "aws_security_group" "bastionSG" {
     to_port   = 22
     protocol  = "tcp"
 
-    cidr_blocks = ["108.56.71.0/24", "67.0.0.0/8"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -168,7 +168,7 @@ resource "aws_security_group" "bastionSG" {
 #create security group for webservers - modify once placed behind load balancer
 resource "aws_security_group" "webserverSG" {
   name        = "webserverSG"
-  description = "Allow all traffic"
+  description = "allow access from bastion and lb"
   vpc_id      = "${aws_vpc.labsiteVPC.id}"
 
   ingress {
@@ -177,8 +177,39 @@ resource "aws_security_group" "webserverSG" {
     to_port   = 22
     protocol  = "tcp"
 
-    cidr_blocks = ["20.0.10.0/28"]
+    cidr_blocks = ["20.0.10.0/27"]
   }
+
+  ingress {
+    # http open
+    from_port = 80
+    to_port   = 80
+    protocol  = "tcp"
+    security_groups = ["${aws_security_group.lbSG.id}"]
+  }
+
+  ingress {
+    # https open
+    from_port = 443
+    to_port   = 443
+    protocol  = "tcp"
+
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+#create security group for load balancer
+resource "aws_security_group" "lbSG" {
+  name        = "load balancer SG"
+  description = "open port 22 to all"
+  vpc_id      = "${aws_vpc.labsiteVPC.id}"
 
   ingress {
     # http open
@@ -211,8 +242,8 @@ resource "aws_lb" "labsite_lb" {
   name               = "labsitelb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = ["${aws_security_group.webserverSG.id}"]
-  subnets            = ["${aws_subnet.subnet4.id}", "${aws_subnet.subnet3.id}"]
+  security_groups    = ["${aws_security_group.lbSG.id}"]
+  subnets            = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet4.id}"]
 
   enable_deletion_protection = false
 
@@ -255,7 +286,8 @@ resource "aws_lb_listener" "front_end" {
   load_balancer_arn = "${aws_lb.labsite_lb.arn}"
   port              = "80"
   protocol          = "HTTP"
-#  certificate_arn   = "${aws_acm_certificate.LabsiteCert.arn}"
+
+  #  certificate_arn   = "${aws_acm_certificate.LabsiteCert.arn}"
 
   default_action {
     type             = "forward"
@@ -275,14 +307,19 @@ resource "aws_lb_listener" "front_end" {
       status_code = "HTTP_301"
     }
   }
+
+  condition {
+    field  = "host-header"
+    values = ["*.elb.amazonaws.com"]
+  }
 }
 
-resource "aws_lb_listener_certificate" "LabsiteCert" {
+/*resource "aws_lb_listener_certificate" "LabsiteCert" {
   listener_arn    = "${aws_lb_listener.front_end.arn}"
   certificate_arn = "${aws_acm_certificate.LabsiteCert.arn}"
 }
-
-resource "aws_acm_certificate" "cert" {
+*/
+/*resource "aws_acm_certificate" "cert" {
   domain_name       = "example.com"
   validation_method = "DNS"
 
@@ -298,6 +335,15 @@ resource "aws_lb_target_group" "labsitelb_tg" {
   port     = 80
   protocol = "HTTP"
   vpc_id   = "${aws_vpc.labsiteVPC.id}"
+
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 2
+    interval            = 5
+    #path                = "/var/www/html/index.html"
+    port                = 80
+  }
 }
 
 /*attach target group to instances - future improvement make this attachment to

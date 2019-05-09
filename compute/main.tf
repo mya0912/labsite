@@ -4,6 +4,7 @@ resource "aws_instance" "bastion" {
   subnet_id                   = "${var.bastion_subnet}"
   associate_public_ip_address = "true"
   key_name                    = "Alipui_key"
+  user_data                   = "${data.template_file.bastion_init.rendered}"
   vpc_security_group_ids      = ["${var.bastionSG_id}"]
   monitoring                  = "true"
 
@@ -20,11 +21,12 @@ resource "aws_instance" "webserver1" {
   subnet_id     = "${var.websubnet1_id}"
 
   #delete following ilne once load ballancer built
-  associate_public_ip_address = "true"
-  key_name                    = "Alipui_key"
-  user_data                   = "${data.template_file.user_data_webserver.rendered}"
-  vpc_security_group_ids      = ["${var.webserverSG_id}"]
-  monitoring                  = "true"
+  #associate_public_ip_address = "true"
+  key_name = "Alipui_key"
+
+  user_data              = "${data.template_file.webserver_init.rendered}"
+  vpc_security_group_ids = ["${var.webserverSG_id}"]
+  monitoring             = "true"
 
   tags = {
     Name    = "webserver1"
@@ -39,11 +41,12 @@ resource "aws_instance" "webserver2" {
   subnet_id     = "${var.websubnet2_id}"
 
   #delete following line once load balancer built
-  associate_public_ip_address = "true"
-  key_name                    = "Alipui_key"
-  user_data                   = "${data.template_file.user_data_webserver.rendered}"
-  vpc_security_group_ids      = ["${var.webserverSG_id}"]
-  monitoring                  = "true"
+  #associate_public_ip_address = "true"
+  key_name = "Alipui_key"
+
+  user_data              = "${data.template_file.webserver_init.rendered}"
+  vpc_security_group_ids = ["${var.webserverSG_id}"]
+  monitoring             = "true"
 
   tags = {
     Name    = "webserver2"
@@ -52,30 +55,14 @@ resource "aws_instance" "webserver2" {
   }
 }
 
-#user data for bastion host
-data "template_file" "user_data_bastion" {
-  template = <<-EOF
-  #!/bin/bash
-  sudo yum update -y
-  wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
-  sudo rpm -U ./amazon-cloudwatch-agent.rpm
-  sudo aws configure --profile labsite
-  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -s
-  EOF
+#create data template resource for bastion user data
+data "template_file" "bastion_init" {
+    template = "${file("compute/bastion_init.sh")}"
 }
 
-#specify data object to load user data inline for webservers
-data "template_file" "user_data_webserver" {
-  template = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y httpd
-              wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm.sig
-              sudo rpm -U ./amazon-cloudwatch-agent.rpm
-              sudo aws configure --profile labsite
-              sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -s
-              systemctl start httpd
-              EOF
+#create data template resource for webserver user data
+data "template_file" "webserver_init" {
+  template = "${file("compute/webserver_init.sh")}"
 }
 
 resource "aws_key_pair" "MAkey" {
